@@ -38,6 +38,7 @@ router.register(r'users', UserViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include(router.urls)),
-    path('account/', include('account.urls')),
-    path('oauth/', include('oauth.urls'))
+    path('account', include('account.urls')),
+    path('oauth', include('oauth.urls')),
+    path('record', include('record.urls'))
 ]
