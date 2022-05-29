@@ -21,7 +21,7 @@ class RecordDetailView(APIView):
 class RecordListView(APIView):
     def get(self, request):
         account_id = request.query_params.get('account_id')
-        records = Record.objects.filter(id=account_id).all()
+        records = Record.objects.filter(account_id=account_id).all()
         serializer = RecordSerializer(records, many=True)
         return Response(serializer.data)
 
