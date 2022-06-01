@@ -84,6 +84,7 @@ class RecordStatisticsView(APIView):
     def get(self, request, account_id):
         year = request.query_params.get('year')
         month = request.query_params.get('month')
+        average = True if request.query_params.get('average') == 'true' else False
         statistics = Record.objects.filter(
             account_id=account_id
         )
@@ -96,12 +97,20 @@ class RecordStatisticsView(APIView):
             created_at__gte=gte,
             created_at__lt=lt
             )
-        statistics = statistics.all().aggregate(
-            distance=Sum('distance'),
-            duration=Sum('duration'),
-            pace=Avg('pace'),
-            kcal=Sum('kcal')
-        )
+        if average:
+            statistics = statistics.all().aggregate(
+                distance=Avg('distance'),
+                duration=Avg('duration'),
+                pace=Avg('pace'),
+                kcal=Avg('kcal')
+            )
+        else:
+            statistics = statistics.all().aggregate(
+                distance=Sum('distance'),
+                duration=Sum('duration'),
+                pace=Avg('pace'),
+                kcal=Sum('kcal')
+            )
         statistics['account_id'] = account_id
         statistics['year'] = year
         statistics['month'] = month
