@@ -53,23 +53,23 @@ class RecordCreateView(APIView):
         )
         if summary['timezone'] == 'day':
             if summary['place'] == 'inside':
-                if summary['pace'] > 10.0:
+                if summary['pace'] < 7.0:
                     group_type = Group.DAY_INSIDE_FAST
                 else:
                     group_type = Group.DAY_INSIDE_SLOW
             else:
-                if summary['pace'] > 10.0:
+                if summary['pace'] < 7.0:
                     group_type = Group.DAY_OUTSIDE_FAST
                 else:
                     group_type = Group.DAY_OUTSIDE_SLOW
         else:
             if summary['place'] == 'inside':
-                if summary['pace'] > 10.0:
+                if summary['pace'] < 7.0:
                     group_type = Group.NIGHT_INSIDE_FAST
                 else:
                     group_type = Group.NIGHT_INSIDE_SLOW
             else:
-                if summary['pace'] > 10.0:
+                if summary['pace'] < 7.0:
                     group_type = Group.NIGHT_OUTSIDE_FAST
                 else:
                     group_type = Group.NIGHT_OUTSIDE_SLOW
