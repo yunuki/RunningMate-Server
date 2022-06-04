@@ -1,3 +1,6 @@
+import datetime
+
+from django.db.models import Avg, Max, Sum
 from django.http import HttpResponseNotAllowed, HttpResponseNotFound
 from django.shortcuts import render
 
@@ -6,8 +9,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from account.models import Account
+from group.models import Group
 from record.models import Record
-from record.serializers import RecordSerializer
+from record.serializers import RecordSerializer, RecordStatisticsSerializer
 
 
 class RecordDetailView(APIView):
@@ -21,14 +25,15 @@ class RecordDetailView(APIView):
 class RecordListView(APIView):
     def get(self, request):
         account_id = request.query_params.get('account_id')
-        records = Record.objects.filter(id=account_id).all()
+        records = Record.objects.filter(account_id=account_id).order_by('-created_at').all()
         serializer = RecordSerializer(records, many=True)
         return Response(serializer.data)
 
 class RecordCreateView(APIView):
     def post(self, request):
         body = request.data
-        account = Account.objects.filter(id=body.get('account_id')).first()
+        account_id = body.get('account_id')
+        account = Account.objects.filter(id=account_id).first()
         if account is None:
             return HttpResponseNotAllowed()
         record = Record(
@@ -41,5 +46,73 @@ class RecordCreateView(APIView):
             timezone=body.get('timezone')
         )
         record.save()
+        summary = Record.objects.filter(account_id=account_id).all().aggregate(
+            timezone=Max('timezone'),
+            place=Max('place'),
+            pace=Avg('pace')
+        )
+        if summary['timezone'] == 'day':
+            if summary['place'] == 'inside':
+                if summary['pace'] < 7.0:
+                    group_type = Group.DAY_INSIDE_FAST
+                else:
+                    group_type = Group.DAY_INSIDE_SLOW
+            else:
+                if summary['pace'] < 7.0:
+                    group_type = Group.DAY_OUTSIDE_FAST
+                else:
+                    group_type = Group.DAY_OUTSIDE_SLOW
+        else:
+            if summary['place'] == 'inside':
+                if summary['pace'] < 7.0:
+                    group_type = Group.NIGHT_INSIDE_FAST
+                else:
+                    group_type = Group.NIGHT_INSIDE_SLOW
+            else:
+                if summary['pace'] < 7.0:
+                    group_type = Group.NIGHT_OUTSIDE_FAST
+                else:
+                    group_type = Group.NIGHT_OUTSIDE_SLOW
+        group = Group.objects.filter(type=group_type).first()
+        account.group = group
+        account.save()
         serializer = RecordSerializer(record)
+        return Response(serializer.data)
+
+
+class RecordStatisticsView(APIView):
+    def get(self, request, account_id):
+        year = request.query_params.get('year')
+        month = request.query_params.get('month')
+        average = True if request.query_params.get('average') == 'true' else False
+        statistics = Record.objects.filter(
+            account_id=account_id
+        )
+        if year is not None and month is not None:
+            year = int(year)
+            month = int(month)
+            gte = datetime.datetime(year, month, 1)
+            lt = datetime.datetime(year, month + 1, 1)
+            statistics = statistics.filter(
+            created_at__gte=gte,
+            created_at__lt=lt
+            )
+        if average:
+            statistics = statistics.all().aggregate(
+                distance=Avg('distance'),
+                duration=Avg('duration'),
+                pace=Avg('pace'),
+                kcal=Avg('kcal')
+            )
+        else:
+            statistics = statistics.all().aggregate(
+                distance=Sum('distance'),
+                duration=Sum('duration'),
+                pace=Avg('pace'),
+                kcal=Sum('kcal')
+            )
+        statistics['account_id'] = account_id
+        statistics['year'] = year
+        statistics['month'] = month
+        serializer = RecordStatisticsSerializer(statistics)
         return Response(serializer.data)
